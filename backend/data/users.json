@@ -1,0 +1,26 @@
+[
+  {
+    "id": "usr_q3iobrnhu",
+    "name": "Manjot Singh",
+    "email": "manjot@ecopocket.com",
+    "password": "$2a$12$J8B3CbfbJ6Tgi0WO2fZb2.dwPX6MBP8N5i7yOWLpkdcvN4.hrLWLq",
+    "role": "user",
+    "createdAt": "2026-08-23T14:34:25.689Z"
+  },
+  {
+    "id": "usr_10ee6slaw",
+    "name": "Manjot",
+    "email": "mjdeol87@gmail.com",
+    "password": "$2a$12$dJ2n7dqdejICfGbY3RASbetVSSeE/Zxr0E838lQm.EMZjdTNdGjYC",
+    "role": "user",
+    "createdAt": "2026-09-03T12:58:32.799Z"
+  },
+  {
+    "id": "usr_19dx9brmc",
+    "name": "Manjot",
+    "email": "deolmanjot76@gmail.com",
+    "password": "$2a$12$QA2D1XNCAfdYQ3wL7.chJOvKMJ4odYR8O6opKOZSpm43wacwm8hly",
+    "role": "user",
+    "createdAt": "2026-09-14T07:39:05.046Z"
+  }
+]

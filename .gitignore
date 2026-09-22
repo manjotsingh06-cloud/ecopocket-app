@@ -1,0 +1,29 @@
+# Node dependencies
+node_modules/
+.npm-cache/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build files
+dist/
+build/
+.vercel/
+
+# Temporary files
+tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
