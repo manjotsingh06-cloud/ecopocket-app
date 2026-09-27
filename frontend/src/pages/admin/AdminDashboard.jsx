@@ -4,10 +4,10 @@ import api from '../../api/axios';
 import { formatPrice } from '../../data/products';
 import {
   FiEdit2, FiTrash2, FiPlus, FiCheck, FiX, FiImage,
-  FiUser, FiMail, FiStar, FiLoader, FiUpload,
+  FiUser, FiMail, FiStar, FiLoader, FiUpload, FiPackage, FiTruck, FiRefreshCw,
 } from 'react-icons/fi';
 
-const TABS = ['Products', 'Analytics', 'Users', 'Messages', 'Testimonials', 'Blogs', 'Gallery', 'Newsletter'];
+const TABS = ['Products', 'Orders', 'Analytics', 'Users', 'Messages', 'Testimonials', 'Blogs', 'Gallery', 'Newsletter'];
 
 // Must match the allowed values in backend/models/Product.js
 const CATEGORIES = [
@@ -100,6 +100,8 @@ export default function AdminDashboard() {
   const [blogs, setBlogs] = useState([]);
   const [gallery, setGallery] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const [blogForm, setBlogForm] = useState(null);
   const [savingBlog, setSavingBlog] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -121,6 +123,13 @@ export default function AdminDashboard() {
     setLoading(true);
     api.get('/products?limit=200').then((res) => setProducts(res.data.products || [])).finally(() => setLoading(false));
   };
+  const fetchOrders = () => {
+    setLoading(true);
+    api.get('/admin/orders')
+      .then((res) => setOrders(res.data.orders || []))
+      .catch(() => showToast('Failed to load orders.'))
+      .finally(() => setLoading(false));
+  };
   const fetchUsers = () => api.get('/admin/users').then((res) => setUsers(res.data.users || [])).catch(() => {});
   const fetchTestimonials = () => api.get('/admin/testimonials').then((res) => setTestimonials(res.data.testimonials || [])).catch(() => {});
   const fetchMessages = () => api.get('/contact').then((res) => setMessages(res.data.messages || [])).catch(() => {});
@@ -128,12 +137,27 @@ export default function AdminDashboard() {
   const fetchGallery = () => api.get('/gallery').then((res) => setGallery(res.data.items || [])).catch(() => {});
   const fetchSubscribers = () => api.get('/newsletter').then((res) => setSubscribers(res.data.subscribers || [])).catch(() => {});
 
+  const handleUpdateOrderStatus = async (orderId, status) => {
+    setUpdatingOrderId(orderId);
+    try {
+      await api.put(`/admin/orders/${orderId}/status`, { status });
+      showToast(`Order updated to ${status}`);
+      fetchOrders();
+      refreshAnalytics();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update order status.');
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
   useEffect(() => {
     refreshAnalytics();
     fetchProducts();
   }, []);
 
   useEffect(() => {
+    if (tab === 'Orders') fetchOrders();
     if (tab === 'Users') fetchUsers();
     if (tab === 'Messages') fetchMessages();
     if (tab === 'Testimonials') fetchTestimonials();
@@ -463,6 +487,110 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* TAB: ORDERS MANAGEMENT */}
+          {tab === 'Orders' && (
+            <div>
+              <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                <div>
+                  <h3 className="font-display font-bold text-xl text-forest dark:text-cream">Customer Orders</h3>
+                  <p className="text-xs opacity-70 mt-0.5">Manage live order fulfillment, customer delivery details, and payment verification.</p>
+                </div>
+                <button
+                  onClick={fetchOrders}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-forest/20 text-xs font-semibold hover:bg-forest/5"
+                >
+                  <FiRefreshCw size={13} /> Refresh Orders
+                </button>
+              </div>
+
+              {orders.length === 0 ? (
+                <div className="text-center py-16 opacity-60">
+                  <FiPackage size={36} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No orders recorded in the system yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map((o) => (
+                    <div
+                      key={o._id}
+                      className="p-5 rounded-2xl bg-white/70 dark:bg-white/5 border border-forest/15 dark:border-white/10 shadow-sm space-y-4"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-forest/10 dark:border-white/10 gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-bold text-sm text-forest dark:text-sage-soft">
+                            {o.orderNumber}
+                          </span>
+                          <span className="text-[11px] opacity-60">
+                            {new Date(o.createdAt).toLocaleDateString()} {new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                            o.paymentStatus === 'Paid'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          }`}>
+                            {o.paymentMethod} • {o.paymentStatus}
+                          </span>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold opacity-70">Status:</span>
+                            <select
+                              value={o.orderStatus}
+                              disabled={updatingOrderId === o._id}
+                              onChange={(e) => handleUpdateOrderStatus(o._id, e.target.value)}
+                              className="text-xs font-bold px-2.5 py-1 rounded-lg border border-forest/20 dark:border-white/20 bg-white dark:bg-forest-deep focus:outline-none cursor-pointer"
+                            >
+                              <option value="Processing">Processing</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-3 gap-4 text-xs">
+                        {/* Customer Info */}
+                        <div className="space-y-1">
+                          <p className="font-bold text-forest dark:text-cream flex items-center gap-1.5">
+                            <FiUser size={13} className="text-earth" /> {o.customer?.name}
+                          </p>
+                          <p className="opacity-70">{o.customer?.email}</p>
+                          <p className="opacity-70">{o.customer?.phone}</p>
+                          <p className="opacity-60 text-[11px] mt-1 leading-snug">
+                            {o.customer?.address?.street}, {o.customer?.address?.city}, {o.customer?.address?.pincode}
+                          </p>
+                        </div>
+
+                        {/* Items in shipment */}
+                        <div className="space-y-2 md:col-span-2">
+                          <p className="font-bold text-forest dark:text-cream">Shipment Items ({o.items?.length || 0})</p>
+                          <div className="grid sm:grid-cols-2 gap-2">
+                            {o.items?.map((it, idx) => (
+                              <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-forest/5 dark:bg-white/5">
+                                <img src={it.image || '/images/products/quilted-sandwich-pocket.jpg'} alt="" className="w-9 h-9 rounded-lg object-cover" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-semibold truncate">{it.name}</p>
+                                  <p className="text-[10px] opacity-60">Qty: {it.quantity} × {formatPrice(it.price)}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-forest/10 dark:border-white/10 font-bold">
+                            <span className="opacity-70">Total Charged:</span>
+                            <span className="font-mono text-earth text-sm">{formatPrice(o.totalAmount)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TAB 2: ANALYTICS */}
           {tab === 'Analytics' && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6">
@@ -767,7 +895,7 @@ export default function AdminDashboard() {
       {/* PRODUCT CREATE / EDIT MODAL */}
       {productForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#FAF7F2] dark:bg-[#10251B] border border-forest/20 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-5 my-8">
+          <div className="w-full max-w-2xl bg-cream dark:bg-forest-deep text-forest dark:text-cream border border-forest/20 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-5 my-8">
             <div className="flex items-center justify-between border-b border-forest/10 dark:border-white/10 pb-4">
               <h3 className="font-display font-bold text-base text-forest dark:text-cream">
                 {productForm.isNew ? 'New Product' : 'Edit Product & Images'}
@@ -987,7 +1115,7 @@ export default function AdminDashboard() {
       {/* BLOG CREATE / EDIT MODAL */}
       {blogForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#FAF7F2] dark:bg-[#10251B] border border-forest/20 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-5 my-8">
+          <div className="w-full max-w-2xl bg-cream dark:bg-forest-deep text-forest dark:text-cream border border-forest/20 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-5 my-8">
             <div className="flex items-center justify-between border-b border-forest/10 dark:border-white/10 pb-4">
               <h3 className="font-display font-bold text-base text-forest dark:text-cream">
                 {blogForm.isNew ? 'New Blog Post' : 'Edit Blog Post'}

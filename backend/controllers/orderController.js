@@ -1,4 +1,6 @@
+const { isMongo } = require('../config/db');
 const Order = require('../models/Order');
+const Product = require('../models/Product');
 let Razorpay;
 try {
   Razorpay = require('razorpay');
@@ -54,14 +56,46 @@ exports.createRazorpayOrder = async (req, res, next) => {
   }
 };
 
-// POST /api/orders - Create a new order with instant payment verification
+// POST /api/orders - Create a new order with verified server-side pricing
 exports.createOrder = async (req, res, next) => {
   try {
-    const { customer, items, totalAmount, paymentMethod, razorpayPaymentId } = req.body;
+    const { customer, items, paymentMethod, razorpayPaymentId } = req.body;
 
-    if (!customer || !items || items.length === 0 || !totalAmount) {
+    if (!customer || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ success: false, message: 'Invalid order data.' });
     }
+
+    // Server-side calculation of subtotal
+    let subtotal = 0;
+    const validatedItems = [];
+
+    for (const item of items) {
+      const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+      let unitPrice = Number(item.price);
+
+      // Verify price against DB product if available
+      if (item.product && isMongo()) {
+        try {
+          const dbProduct = await Product.findById(item.product);
+          if (dbProduct) {
+            unitPrice = dbProduct.price;
+          }
+        } catch (_) {}
+      }
+
+      subtotal += unitPrice * qty;
+      validatedItems.push({
+        product: item.product || null,
+        name: item.name,
+        slug: item.slug,
+        price: unitPrice,
+        quantity: qty,
+        image: item.image || '',
+      });
+    }
+
+    const shippingFee = subtotal >= 999 ? 0 : 79;
+    const totalAmount = subtotal + shippingFee;
 
     const orderNumber = 'EP-' + Date.now().toString().slice(-6) + Math.floor(100 + Math.random() * 900);
     const transactionId = razorpayPaymentId
@@ -72,12 +106,12 @@ exports.createOrder = async (req, res, next) => {
 
     const order = await Order.create({
       orderNumber,
-      user: req.user?._id || null,
+      user: req.user?._id || req.user?.id || null,
       customer,
-      items,
+      items: validatedItems,
       totalAmount,
-      shippingFee: totalAmount >= 999 ? 0 : 79,
-      paymentMethod: paymentMethod || 'UPI',
+      shippingFee,
+      paymentMethod: paymentMethod || 'Razorpay',
       paymentStatus: paymentMethod === 'CashOnDelivery' ? 'Pending' : 'Paid',
       orderStatus: 'Processing',
       transactionId,
@@ -93,11 +127,14 @@ exports.createOrder = async (req, res, next) => {
   }
 };
 
-// GET /api/orders/my-orders (optional for logged in users)
+// GET /api/orders/my-orders (strictly authenticated to prevent IDOR leaks)
 exports.getMyOrders = async (req, res, next) => {
   try {
-    const query = req.user ? { user: req.user._id } : {};
-    const orders = await Order.find(query).sort('-createdAt').limit(20);
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
+    }
+    const userId = req.user._id || req.user.id;
+    const orders = await Order.find({ user: userId }).sort('-createdAt').limit(20);
     res.json({ success: true, orders });
   } catch (error) {
     next(error);

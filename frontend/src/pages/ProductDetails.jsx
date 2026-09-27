@@ -7,6 +7,7 @@ import api from '../api/axios';
 import { PRODUCTS, formatPrice } from '../data/products';
 import { FiArrowLeft, FiCheck, FiShield, FiTruck, FiHeart, FiShoppingBag, FiMinus, FiPlus, FiFeather, FiCreditCard } from 'react-icons/fi';
 import CheckoutModal from '../components/checkout/CheckoutModal';
+import { useCart } from '../context/CartContext';
 
 export default function ProductDetails() {
   const { slug } = useParams();
@@ -19,6 +20,7 @@ export default function ProductDetails() {
   const [addedToast, setAddedToast] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     setLoading(true);
@@ -34,8 +36,11 @@ export default function ProductDetails() {
   }, [slug]);
 
   const handleAddToCart = () => {
-    setAddedToast(true);
-    setTimeout(() => setAddedToast(false), 3000);
+    if (product) {
+      addToCart(product, quantity);
+      setAddedToast(true);
+      setTimeout(() => setAddedToast(false), 3000);
+    }
   };
 
   if (loading) {
@@ -86,7 +91,7 @@ export default function ProductDetails() {
                 />
               ) : (
                 <svg viewBox="0 0 200 200" className="w-44 h-44 text-sage">
-                  <path d="M25 90 Q100 30 175 90 L175 150 Q100 175 25 150 Z" fill="currentColor" fillOpacity="0.5" stroke="#1F3D2B" strokeWidth="2.5" />
+                  <path d="M25 90 Q100 30 175 90 L175 150 Q100 175 25 150 Z" fill="currentColor" fillOpacity="0.5" stroke="#10251B" strokeWidth="2.5" />
                 </svg>
               )}
 
@@ -257,7 +262,7 @@ export default function ProductDetails() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs font-medium opacity-80">
-              <span className="flex items-center gap-2"><FiTruck className="text-earth" /> Free shipping on orders over $40</span>
+              <span className="flex items-center gap-2"><FiTruck className="text-earth" /> Free shipping on orders over ₹999</span>
               <span className="flex items-center gap-2"><FiShield className="text-earth" /> 30-day eco guarantee</span>
             </div>
           </Reveal>

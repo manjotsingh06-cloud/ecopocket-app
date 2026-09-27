@@ -13,13 +13,20 @@ npm install
 npm run seed               # populates 10 products, 3 blog posts, testimonials, an admin user
 npm run dev                 # http://localhost:5000
 ```
-Seeded admin login: `admin@ecopocket.com` / `ChangeMe123!` — **change this password immediately** after first login.
+Seeded admin login: `admin@ecopocket.com` / `ChangeMe123!` — **you must change this password**: the dashboard will
+force you to set a new one before you can use it.
 
 ### 2. Frontend
 ```bash
 cd frontend
 npm install
-npm run dev                 # http://localhost:5173 (proxies /api to the backend)
+npm run dev                 # http://localhost:5174 (proxies /api to the backend)
+```
+
+### 3. Tests
+```bash
+cd backend && npm test       # API integration tests (auth, roles, product CRUD, password rotation)
+cd frontend && npm test      # frontend unit tests (price formatting)
 ```
 
 Open http://localhost:5173 — the whole public site, auth flow, user dashboard, and admin dashboard shell are live.

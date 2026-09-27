@@ -61,7 +61,7 @@ export default function Footer() {
             </div>
           </div>
 
-          <FooterCol title="Explore" links={[['About Us', '/about'], ['Product Catalog', '/products'], ['Quilting Process', '/quilting-process']]} />
+          <FooterCol title="Explore" links={[['About Us', '/about'], ['Product Catalog', '/products'], ['Quilting Process', '/quilting-process'], ['Journal & Stories', '/blog']]} />
           <FooterCol title="Company" links={[['Sustainability', '/sustainability'], ['Gallery', '/gallery'], ['FAQ', '/faq']]} />
           
           <div>

@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiMenu, FiX, FiSun, FiMoon, FiUser, FiLogOut, FiGrid, FiChevronDown, FiFeather } from 'react-icons/fi';
+import { FiMenu, FiX, FiSun, FiMoon, FiUser, FiLogOut, FiGrid, FiChevronDown, FiFeather, FiShoppingBag } from 'react-icons/fi';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 
 const LINKS = [
   { to: '/about', label: 'About' },
@@ -11,6 +12,7 @@ const LINKS = [
   { to: '/quilting-process', label: 'Process' },
   { to: '/sustainability', label: 'Sustainability' },
   { to: '/gallery', label: 'Gallery' },
+  { to: '/blog', label: 'Journal' },
   { to: '/track-order', label: 'Track Order' },
   { to: '/faq', label: 'FAQ' },
   { to: '/contact', label: 'Contact' },
@@ -20,7 +22,8 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { dark, toggle } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, sessionVerified } = useAuth();
+  const { totalItems, setIsCartOpen } = useCart();
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
 
@@ -41,15 +44,15 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-[#FAF7F2]/90 dark:bg-[#10251B]/95 backdrop-blur-md border-b border-[#496653]/20 dark:border-[#496653] shadow-md transition-colors duration-300">
+    <header className="fixed top-0 inset-x-0 z-50 bg-[#FAF7F2]/90 dark:bg-[#0D1E16]/95 backdrop-blur-md border-b border-[#3D5A47]/20 dark:border-[#3D5A47] shadow-sm transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5 font-display font-bold text-xl tracking-tight text-[#10251B] dark:text-[#F7F3EA] group">
+        <Link to="/" className="flex items-center gap-2.5 font-display font-bold text-xl tracking-tight text-forest dark:text-cream group">
           <motion.div whileHover={{ rotate: 15 }} transition={{ type: 'spring', stiffness: 300 }}>
-            <svg width="28" height="28" viewBox="0 0 26 26" fill="none" className="text-[#4F9D69] group-hover:text-[#C96B45] transition-colors">
+            <svg width="28" height="28" viewBox="0 0 26 26" fill="none" className="text-sage group-hover:text-earth transition-colors">
               <path d="M4 10 Q13 2 22 10 L22 20 Q13 26 4 20 Z" fill="currentColor" fillOpacity="0.55" stroke="currentColor" strokeWidth="1.8"/>
             </svg>
           </motion.div>
-          <span>Eco<span className="text-[#C96B45]">Pocket</span></span>
+          <span>Eco<span className="text-earth">Pocket</span></span>
         </Link>
 
         <nav className="hidden lg:flex items-center gap-1.5 text-sm font-medium">
@@ -60,8 +63,8 @@ export default function Navbar() {
               className={({ isActive }) =>
                 `relative px-3.5 py-2 rounded-full transition-all duration-200 ${
                   isActive
-                    ? 'font-semibold text-[#10251B] bg-[#193528]/10 dark:text-[#A8C3A0] dark:bg-[#193528]'
-                    : 'text-[#10251B]/80 hover:text-[#C96B45] hover:bg-[#193528]/5 dark:text-[#D8D9CC] dark:hover:text-[#A8C3A0] dark:hover:bg-[#193528]/50'
+                    ? 'font-bold text-forest bg-forest/10 dark:text-cream dark:bg-white/10'
+                    : 'text-forest/80 hover:text-earth hover:bg-forest/5 dark:text-cream/80 dark:hover:text-cream dark:hover:bg-white/5'
                 }`
               }
             >
@@ -71,7 +74,7 @@ export default function Navbar() {
                   {isActive && (
                     <motion.div
                       layoutId="navPill"
-                      className="absolute inset-0 rounded-full border border-[#496653]/30 dark:border-[#496653] pointer-events-none"
+                      className="absolute inset-0 rounded-full border border-forest/30 dark:border-white/20 pointer-events-none"
                       transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     />
                   )}
@@ -81,7 +84,22 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Cart Bag Trigger */}
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setIsCartOpen(true)}
+            aria-label="View shopping bag"
+            className="relative w-10 h-10 rounded-full flex items-center justify-center border border-forest/15 dark:border-white/15 hover:bg-forest/5 dark:hover:bg-white/5 text-forest dark:text-cream transition-colors"
+          >
+            <FiShoppingBag size={18} />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-earth text-cream font-bold text-[10px] flex items-center justify-center shadow-md">
+                {totalItems}
+              </span>
+            )}
+          </motion.button>
+
           <motion.button
             whileTap={{ scale: 0.9, rotate: 180 }}
             onClick={toggle}
@@ -126,7 +144,7 @@ export default function Navbar() {
                     >
                       <FiGrid size={15} /> Dashboard
                     </Link>
-                    {user.role === 'admin' && (
+                    {sessionVerified && user.role === 'admin' && (
                       <Link
                         to="/admin"
                         onClick={() => setUserMenuOpen(false)}

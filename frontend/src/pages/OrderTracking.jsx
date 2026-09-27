@@ -97,20 +97,36 @@ export default function OrderTracking() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
                 {steps.map((s, idx) => {
                   const Icon = s.icon;
-                  const isDone = idx === 0;
-                  const isCurrent = idx === 1;
+                  const statusNormalized = (order.orderStatus || 'Processing').toLowerCase();
+                  let currentStepIdx = 1; // Processing (step 1 done, step 2 active)
+                  if (statusNormalized === 'shipped') currentStepIdx = 2;
+                  if (statusNormalized === 'delivered') currentStepIdx = 4; // all done
+
+                  const isDone = statusNormalized !== 'cancelled' && idx < currentStepIdx;
+                  const isCurrent = statusNormalized !== 'cancelled' && idx === currentStepIdx;
+                  const isCancelled = statusNormalized === 'cancelled';
+
                   return (
                     <div
                       key={idx}
-                      className={`p-4 rounded-2xl border flex flex-col justify-between ${
-                        isDone || isCurrent
-                          ? 'border-forest/20 bg-forest/5 dark:bg-white/5'
+                      className={`p-4 rounded-2xl border flex flex-col justify-between transition-all ${
+                        isDone
+                          ? 'border-emerald-500/40 bg-emerald-500/5'
+                          : isCurrent
+                          ? 'border-earth bg-earth/5 ring-1 ring-earth/30'
+                          : isCancelled
+                          ? 'border-red-500/20 opacity-40'
                           : 'border-forest/10 dark:border-white/5 opacity-50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <Icon size={18} className={isDone ? 'text-[#4F9D69]' : isCurrent ? 'text-earth' : 'opacity-40'} />
-                        <span className="text-[10px] font-bold opacity-60">Step {idx + 1}</span>
+                        <Icon
+                          size={18}
+                          className={isDone ? 'text-emerald-600 dark:text-emerald-400' : isCurrent ? 'text-earth' : 'opacity-40'}
+                        />
+                        <span className={`text-[10px] font-bold ${isCurrent ? 'text-earth font-extrabold uppercase' : 'opacity-60'}`}>
+                          {isDone ? 'Completed' : isCurrent ? 'In Progress' : `Step ${idx + 1}`}
+                        </span>
                       </div>
                       <div>
                         <p className="font-bold text-xs text-forest dark:text-cream leading-tight mb-1">{s.title}</p>

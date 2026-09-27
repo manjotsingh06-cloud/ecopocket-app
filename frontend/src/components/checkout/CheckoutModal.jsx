@@ -4,7 +4,7 @@ import { FiX, FiCheckCircle, FiCreditCard, FiSmartphone, FiTruck, FiShield, FiLo
 import api from '../../api/axios';
 import { formatPrice } from '../../data/products';
 
-export default function CheckoutModal({ isOpen, onClose, product, quantity = 1 }) {
+export default function CheckoutModal({ isOpen, onClose, product = null, quantity = 1, cartItems = null, onOrderSuccess = null }) {
   const [step, setStep] = useState('details'); // 'details' | 'payment' | 'success'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,9 +25,27 @@ export default function CheckoutModal({ isOpen, onClose, product, quantity = 1 }
     cardCvv: '',
   });
 
-  if (!isOpen || !product) return null;
+  const orderItems = (cartItems && cartItems.length > 0)
+    ? cartItems.map((item) => ({
+        product: item.product?._id || item.id,
+        name: item.name,
+        slug: item.slug,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image || item.product?.images?.[0]?.url || '/images/products/quilted-sandwich-pocket.jpg',
+      }))
+    : (product ? [{
+        product: product._id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        quantity,
+        image: product.images?.[0]?.url || '/images/products/quilted-sandwich-pocket.jpg',
+      }] : []);
 
-  const subtotal = product.price * quantity;
+  if (!isOpen || orderItems.length === 0) return null;
+
+  const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal >= 999 ? 0 : 79;
   const total = subtotal + shipping;
 
@@ -76,14 +94,14 @@ export default function CheckoutModal({ isOpen, onClose, product, quantity = 1 }
             amount: rzpRes.data.amount,
             currency: rzpRes.data.currency,
             name: 'EcoPocket Textiles',
-            description: `Order for ${product.name}`,
+            description: orderItems.length === 1 ? `Order for ${orderItems[0].name}` : `Order for ${orderItems.length} items`,
             order_id: rzpRes.data.orderId,
             prefill: {
               name: form.name,
               email: form.email,
               contact: form.phone,
             },
-            theme: { color: '#193528' },
+            theme: { color: '#10251B' },
             handler: async (response) => {
               // Complete order on backend with Razorpay Payment ID
               await submitOrderToBackend(response.razorpay_payment_id);
@@ -118,16 +136,7 @@ export default function CheckoutModal({ isOpen, onClose, product, quantity = 1 }
           pincode: form.pincode,
         },
       },
-      items: [
-        {
-          product: product._id,
-          name: product.name,
-          slug: product.slug,
-          price: product.price,
-          quantity,
-          image: product.images?.[0]?.url || '',
-        },
-      ],
+      items: orderItems,
       totalAmount: total,
       paymentMethod: form.paymentMethod,
       razorpayPaymentId,
@@ -137,6 +146,7 @@ export default function CheckoutModal({ isOpen, onClose, product, quantity = 1 }
     setOrderResult(res.data.order);
     setStep('success');
     setLoading(false);
+    if (onOrderSuccess) onOrderSuccess();
   };
 
   const resetAndClose = () => {
@@ -152,7 +162,7 @@ export default function CheckoutModal({ isOpen, onClose, product, quantity = 1 }
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="w-full max-w-xl bg-[#FAF7F2] dark:bg-[#10251B] border border-forest/20 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-xl bg-cream dark:bg-forest-deep text-forest dark:text-cream border border-forest/20 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         {/* Header */}
         <div className="px-6 py-4 bg-forest text-cream flex items-center justify-between">
@@ -173,27 +183,28 @@ export default function CheckoutModal({ isOpen, onClose, product, quantity = 1 }
         <div className="p-6 overflow-y-auto space-y-6">
           {/* Order Summary Pill */}
           {step !== 'success' && (
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-forest/5 dark:bg-white/5 border border-forest/10 dark:border-white/10">
-              <div className="flex items-center gap-3">
-                <img
-                  src={product.images?.[0]?.url || '/images/products/quilted-sandwich-pocket.jpg'}
-                  alt={product.name}
-                  className="w-12 h-12 rounded-xl object-cover border border-forest/10"
-                />
-                <div>
-                  <p className="font-bold text-xs text-forest dark:text-cream truncate max-w-[200px]">
-                    {product.name}
-                  </p>
-                  <p className="text-[11px] opacity-70">
-                    Qty: {quantity} × {formatPrice(product.price)}
+            <div className="p-3.5 rounded-2xl bg-forest/5 dark:bg-white/5 border border-forest/10 dark:border-white/10 space-y-2">
+              <div className="flex items-center justify-between pb-2 border-b border-forest/10 dark:border-white/10">
+                <span className="text-xs font-bold text-forest dark:text-cream">
+                  {orderItems.length === 1 ? orderItems[0].name : `${orderItems.length} Items in Order`}
+                </span>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-forest dark:text-cream">{formatPrice(total)}</span>
+                  <p className="text-[10px] text-emerald-600 font-semibold">
+                    {shipping === 0 ? 'Free Shipping' : '+ ₹79 Shipping'}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs font-bold text-forest dark:text-cream">{formatPrice(total)}</p>
-                <p className="text-[10px] text-emerald-600 font-semibold">
-                  {shipping === 0 ? 'Free Shipping' : '+ ₹79 Shipping'}
-                </p>
+              <div className="max-h-24 overflow-y-auto space-y-1.5 pr-1">
+                {orderItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[11px] opacity-80">
+                    <div className="flex items-center gap-2 truncate max-w-[220px]">
+                      <img src={item.image} alt={item.name} className="w-6 h-6 rounded object-cover shrink-0" />
+                      <span className="truncate">{item.quantity}× {item.name}</span>
+                    </div>
+                    <span className="font-medium shrink-0">{formatPrice(item.price * item.quantity)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

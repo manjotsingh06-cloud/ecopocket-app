@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const mongoose = require('mongoose');
+const { isMongo } = require('../config/db');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const sendEmail = require('../utils/sendEmail');
@@ -15,8 +15,8 @@ async function register(req, res, next) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if MongoDB is connected
-    if (mongoose.connection.readyState === 1) {
+    // Check if MongoDB is the active store (decided once at startup — config/db.js)
+    if (isMongo()) {
       const existing = await User.findOne({ email: normalizedEmail });
       if (existing) return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
 
@@ -26,7 +26,7 @@ async function register(req, res, next) {
 
       // Send verification email safely
       try {
-        const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/verify-email/${verifyToken}`;
+        const verifyUrl = `${process.env.CLIENT_URL || 'http://localhost:5174'}/verify-email/${verifyToken}`;
         await sendEmail({
           to: user.email,
           subject: 'Verify your EcoPocket account',
@@ -41,7 +41,7 @@ async function register(req, res, next) {
         success: true,
         message: 'Account created successfully!',
         token,
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        user: { id: user._id, name: user.name, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword },
       });
     } else {
       // Persistent File Store Fallback
@@ -52,7 +52,7 @@ async function register(req, res, next) {
       const bcrypt = require('bcryptjs');
       const hashedPassword = await bcrypt.hash(password, 12);
       const fakeId = 'usr_' + Math.random().toString(36).substring(2, 11);
-      const userObj = { id: fakeId, name, email: normalizedEmail, password: hashedPassword, role: 'user', createdAt: new Date().toISOString() };
+      const userObj = { id: fakeId, name, email: normalizedEmail, password: hashedPassword, role: 'user', mustChangePassword: false, createdAt: new Date().toISOString() };
 
       devStore.addUser(userObj);
       const token = generateToken(fakeId);
@@ -61,7 +61,7 @@ async function register(req, res, next) {
         success: true,
         message: 'Account created successfully!',
         token,
-        user: { id: fakeId, name: userObj.name, email: userObj.email, role: userObj.role },
+        user: { id: fakeId, name: userObj.name, email: userObj.email, role: userObj.role, mustChangePassword: userObj.mustChangePassword || false },
       });
     }
   } catch (err) {
@@ -79,7 +79,7 @@ async function login(req, res, next) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    if (mongoose.connection.readyState === 1) {
+    if (isMongo()) {
       const user = await User.findOne({ email: normalizedEmail }).select('+password');
       if (!user || !(await user.comparePassword(password))) {
         return res.status(401).json({ success: false, message: 'Incorrect email or password.' });
@@ -88,7 +88,7 @@ async function login(req, res, next) {
       return res.json({
         success: true,
         token,
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        user: { id: user._id, name: user.name, email: user.email, role: user.role, mustChangePassword: user.mustChangePassword },
       });
     } else {
       // Persistent File Store Fallback
@@ -101,7 +101,7 @@ async function login(req, res, next) {
       return res.json({
         success: true,
         token,
-        user: { id: userObj.id, name: userObj.name, email: userObj.email, role: userObj.role },
+        user: { id: userObj.id, name: userObj.name, email: userObj.email, role: userObj.role, mustChangePassword: userObj.mustChangePassword || false },
       });
     }
   } catch (err) {
@@ -128,7 +128,7 @@ async function verifyEmail(req, res, next) {
 // POST /api/auth/forgot-password
 async function forgotPassword(req, res, next) {
   try {
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findOne({ email: req.body.email.trim().toLowerCase() });
     if (!user) return res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
 
     const resetToken = user.createPasswordResetToken();
@@ -179,4 +179,53 @@ async function getMe(req, res, next) {
   }
 }
 
-module.exports = { register, login, verifyEmail, forgotPassword, resetPassword, getMe };
+// POST /api/auth/change-password (protected)
+async function changePassword(req, res, next) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ success: false, message: 'New password must be different from the current one.' });
+    }
+
+    if (isMongo()) {
+      const user = await User.findById(req.user._id).select('+password');
+      if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+      if (!(await user.comparePassword(currentPassword))) {
+        return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+      }
+      user.password = newPassword;
+      user.mustChangePassword = false;
+      await user.save();
+      const token = generateToken(user._id);
+      return res.json({
+        success: true,
+        message: 'Password updated.',
+        token,
+        user: { id: user._id, name: user.name, email: user.email, role: user.role, mustChangePassword: false },
+      });
+    }
+
+    // Dev file-store fallback
+    const devStore = require('../utils/devStore');
+    const bcrypt = require('bcryptjs');
+    const userObj = devStore.findUserById(req.user.id);
+    if (!userObj) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (!(await bcrypt.compare(currentPassword, userObj.password))) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+    }
+    userObj.password = await bcrypt.hash(newPassword, 12);
+    userObj.mustChangePassword = false;
+    devStore.updateUser(userObj);
+    const token = generateToken(userObj.id);
+    return res.json({
+      success: true,
+      message: 'Password updated.',
+      token,
+      user: { id: userObj.id, name: userObj.name, email: userObj.email, role: userObj.role, mustChangePassword: false },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, verifyEmail, forgotPassword, resetPassword, getMe, changePassword };

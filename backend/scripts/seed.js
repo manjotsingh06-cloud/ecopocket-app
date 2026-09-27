@@ -82,10 +82,15 @@ async function seed() {
   await Product.insertMany(PRODUCTS.map((p) => ({ ...p, slug: slugify(p.name), images: [{ url: getProductImageUrl(slugify(p.name)) }] })));
   console.log(`Seeded ${PRODUCTS.length} products`);
 
-  let admin = await User.findOne({ email: 'admin@ecopocket.com' });
+  let admin = await User.findOne({ email: 'admin@ecopocket.com' }).select('+password');
   if (!admin) {
-    admin = await User.create({ name: 'EcoPocket Admin', email: 'admin@ecopocket.com', password: 'ChangeMe123!', role: 'admin', isEmailVerified: true });
+    admin = await User.create({ name: 'EcoPocket Admin', email: 'admin@ecopocket.com', password: 'ChangeMe123!', role: 'admin', isEmailVerified: true, mustChangePassword: true });
     console.log('Created admin user: admin@ecopocket.com / ChangeMe123! (please change this password)');
+  } else if (await admin.comparePassword('ChangeMe123!')) {
+    // The published default password is still in use — force a change on next login.
+    admin.mustChangePassword = true;
+    await admin.save({ validateBeforeSave: false });
+    console.log('Admin still uses the default password — password change will be forced on next login.');
   }
 
   await Blog.insertMany(BLOGS.map((b) => ({ ...b, slug: slugify(b.title), author: admin._id })));

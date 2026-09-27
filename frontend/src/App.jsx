@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import EcoBot from './components/chat/EcoBot';
 import ProtectedRoute from './components/ProtectedRoute';
+import ChangePasswordModal from './components/auth/ChangePasswordModal';
+import CartDrawer from './components/cart/CartDrawer';
+import CheckoutModal from './components/checkout/CheckoutModal';
+import { useAuth } from './context/AuthContext';
+import { useCart } from './context/CartContext';
 
 import Home from './pages/Home';
 import About from './pages/About';
@@ -12,6 +18,8 @@ import ProductDetails from './pages/ProductDetails';
 import QuiltingProcess from './pages/QuiltingProcess';
 import Sustainability from './pages/Sustainability';
 import Gallery from './pages/Gallery';
+import Blog from './pages/Blog';
+import BlogPost from './pages/BlogPost';
 import OrderTracking from './pages/OrderTracking';
 import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
@@ -39,6 +47,9 @@ function PageTransition({ children }) {
 
 export default function App() {
   const location = useLocation();
+  const { user, loading, mustChangePassword } = useAuth();
+  const { cartItems, clearCart } = useCart();
+  const [isCartCheckoutOpen, setIsCartCheckoutOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -53,6 +64,8 @@ export default function App() {
             <Route path="/quilting-process" element={<PageTransition><QuiltingProcess /></PageTransition>} />
             <Route path="/sustainability" element={<PageTransition><Sustainability /></PageTransition>} />
             <Route path="/gallery" element={<PageTransition><Gallery /></PageTransition>} />
+            <Route path="/blog" element={<PageTransition><Blog /></PageTransition>} />
+            <Route path="/blog/:slug" element={<PageTransition><BlogPost /></PageTransition>} />
             <Route path="/track-order" element={<PageTransition><OrderTracking /></PageTransition>} />
             <Route path="/faq" element={<PageTransition><FAQ /></PageTransition>} />
             <Route path="/contact" element={<PageTransition><Contact /></PageTransition>} />
@@ -72,6 +85,14 @@ export default function App() {
       </main>
       <Footer />
       <EcoBot />
+      <CartDrawer onCheckout={() => setIsCartCheckoutOpen(true)} />
+      <CheckoutModal
+        isOpen={isCartCheckoutOpen}
+        onClose={() => setIsCartCheckoutOpen(false)}
+        cartItems={cartItems}
+        onOrderSuccess={clearCart}
+      />
+      {!loading && user && mustChangePassword && <ChangePasswordModal />}
     </div>
   );
 }

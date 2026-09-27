@@ -44,4 +44,10 @@ function addUser(userData) {
   return userData;
 }
 
-module.exports = { loadUsers, saveUsers, findUserByEmail, findUserById, addUser };
+function updateUser(updatedUser) {
+  const users = loadUsers().map((u) => (u.id === updatedUser.id ? updatedUser : u));
+  saveUsers(users);
+  return updatedUser;
+}
+
+module.exports = { loadUsers, saveUsers, findUserByEmail, findUserById, addUser, updateUser };

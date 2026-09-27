@@ -18,4 +18,14 @@ const authLimiter = rateLimit({
   message: { success: false, message: 'Too many login attempts — please try again in 15 minutes.' },
 });
 
-module.exports = { apiLimiter, authLimiter };
+// Tight, login-only limiter — only failed attempts count against the window.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { success: false, message: 'Too many failed login attempts — please try again in 15 minutes.' },
+});
+
+module.exports = { apiLimiter, authLimiter, loginLimiter };

@@ -29,8 +29,8 @@ const orderSchema = new mongoose.Schema(
     shippingFee: { type: Number, default: 0 },
     paymentMethod: {
       type: String,
-      enum: ['UPI', 'Card', 'CashOnDelivery'],
-      default: 'UPI',
+      enum: ['Razorpay', 'UPI', 'Card', 'CashOnDelivery'],
+      default: 'Razorpay',
     },
     paymentStatus: {
       type: String,
