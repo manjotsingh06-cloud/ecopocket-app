@@ -19,31 +19,9 @@
       }
     },
     {
-      "source": "/assets/(.*)",
+      "source": "/(.*)",
       "destination": {
-        "service": "frontend",
-        "path": "/assets/$1"
-      }
-    },
-    {
-      "source": "/images/(.*)",
-      "destination": {
-        "service": "frontend",
-        "path": "/images/$1"
-      }
-    },
-    {
-      "source": "/favicon.svg",
-      "destination": {
-        "service": "frontend",
-        "path": "/favicon.svg"
-      }
-    },
-    {
-      "source": "/((?!api/).*)",
-      "destination": {
-        "service": "frontend",
-        "path": "/index.html"
+        "service": "frontend"
       }
     }
   ]
