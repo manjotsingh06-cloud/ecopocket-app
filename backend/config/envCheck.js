@@ -9,7 +9,9 @@ function validateEnv() {
     console.warn('⚠️  JWT_SECRET is shorter than 16 characters — use a long random string for production.');
   }
 
-  if (!process.env.CLIENT_URL) missing.push('CLIENT_URL');
+  if (!process.env.CLIENT_URL) {
+    console.warn('⚠️  CLIENT_URL not set — CORS will use built-in defaults (localhost + Vercel).');
+  }
 
   const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction && !process.env.MONGODB_URI) {

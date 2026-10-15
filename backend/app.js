@@ -30,13 +30,37 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // ---------- Security & core middleware ----------
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5174', credentials: true }));
+// Allow the configured CLIENT_URL, the Vercel production domain, and any Vercel
+// preview URLs. In development fall back to localhost:5174.
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:5174',
+  'http://localhost:5173',
+  'https://ecopocket-app.vercel.app',
+].filter(Boolean);
+
+app.use(cors({
+  origin(origin, cb) {
+    // Allow server-to-server (no origin) and any explicitly listed origin.
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    // Also allow any *.vercel.app preview deployment.
+    if (origin.endsWith('.vercel.app')) return cb(null, true);
+    cb(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '10kb' })); // also guards against oversized payloads
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use('/api', apiLimiter);
 
 // ---------- Health check ----------
-app.get('/api/health', (req, res) => res.json({ success: true, message: 'EcoPocket API is running.' }));
+const { isMongo } = require('./config/db');
+app.get('/api/health', (req, res) => res.json({
+  success: true,
+  message: 'EcoPocket API is running.',
+  storage: isMongo() ? 'mongodb' : 'file-store',
+  env: process.env.NODE_ENV || 'not-set',
+}));
 
 // ---------- Routes ----------
 app.use('/api/auth', authRoutes);
