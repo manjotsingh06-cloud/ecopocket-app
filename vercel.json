@@ -15,19 +15,32 @@
     {
       "source": "/api/(.*)",
       "destination": {
-        "service": "backend",
-        "path": "/api/$1"
+        "service": "backend"
       }
     },
     {
-      "source": "/(.*\\.[a-zA-Z0-9]+)",
+      "source": "/assets/(.*)",
       "destination": {
         "service": "frontend",
-        "path": "/$1"
+        "path": "/assets/$1"
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/images/(.*)",
+      "destination": {
+        "service": "frontend",
+        "path": "/images/$1"
+      }
+    },
+    {
+      "source": "/favicon.svg",
+      "destination": {
+        "service": "frontend",
+        "path": "/favicon.svg"
+      }
+    },
+    {
+      "source": "/((?!api/).*)",
       "destination": {
         "service": "frontend",
         "path": "/index.html"
