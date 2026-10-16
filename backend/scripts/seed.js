@@ -93,7 +93,15 @@ async function seed() {
     console.log('Admin still uses the default password — password change will be forced on next login.');
   }
 
-  await Blog.insertMany(BLOGS.map((b) => ({ ...b, slug: slugify(b.title), author: admin._id })));
+  await Blog.insertMany(BLOGS.map((b) => {
+    const slug = slugify(b.title);
+    return {
+      ...b,
+      slug,
+      coverImage: { url: `/images/journal/${slug}.jpg` },
+      author: admin._id,
+    };
+  }));
   console.log(`Seeded ${BLOGS.length} blog posts`);
 
   await Testimonial.insertMany([

@@ -2,14 +2,35 @@ const Blog = require('../models/Blog');
 
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+const DEFAULT_COVER = '/images/journal/why-zero-waste-dining-starts-in-the-kitchen-drawer.jpg';
+
+function attachCoverImage(blog) {
+  const obj = blog.toObject ? blog.toObject() : { ...blog };
+  if (!obj.coverImage || !obj.coverImage.url) {
+    obj.coverImage = {
+      url: `/images/journal/${obj.slug}.jpg`,
+      fallback: DEFAULT_COVER
+    };
+  }
+  return obj;
+}
+
 async function getBlogs(req, res, next) {
   try {
-    const { category, page = 1, limit = 9 } = req.query;
+    const { category, page = 1, limit = 12 } = req.query;
     const filter = { published: true };
     if (category) filter.category = category;
-    const blogs = await Blog.find(filter).sort('-createdAt').skip((page - 1) * limit).limit(Number(limit));
-    const total = await Blog.countDocuments(filter);
-    res.json({ success: true, total, blogs });
+
+    // Cache responses at edge for ultra-fast CDN loading
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+
+    const [blogs, total] = await Promise.all([
+      Blog.find(filter).sort('-createdAt').skip((page - 1) * limit).limit(Number(limit)).lean(),
+      Blog.countDocuments(filter)
+    ]);
+
+    const enriched = blogs.map(attachCoverImage);
+    res.json({ success: true, total, blogs: enriched });
   } catch (err) {
     next(err);
   }
@@ -17,9 +38,10 @@ async function getBlogs(req, res, next) {
 
 async function getBlogBySlug(req, res, next) {
   try {
-    const blog = await Blog.findOne({ slug: req.params.slug, published: true }).populate('author', 'name');
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+    const blog = await Blog.findOne({ slug: req.params.slug, published: true }).populate('author', 'name').lean();
     if (!blog) return res.status(404).json({ success: false, message: 'Article not found.' });
-    res.json({ success: true, blog });
+    res.json({ success: true, blog: attachCoverImage(blog) });
   } catch (err) {
     next(err);
   }
