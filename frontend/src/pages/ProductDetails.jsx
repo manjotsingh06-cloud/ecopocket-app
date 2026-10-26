@@ -8,6 +8,7 @@ import { PRODUCTS, formatPrice } from '../data/products';
 import { FiArrowLeft, FiCheck, FiShield, FiTruck, FiHeart, FiShoppingBag, FiMinus, FiPlus, FiFeather, FiCreditCard } from 'react-icons/fi';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import { useCart } from '../context/CartContext';
+import { extractDirectImageUrl, FALLBACK_PRODUCT_IMAGE } from '../utils/imageUtils';
 
 export default function ProductDetails() {
   const { slug } = useParams();
@@ -67,7 +68,8 @@ export default function ProductDetails() {
   }
 
   const images = product.images?.length ? product.images : [{ url: null }];
-  const currentImg = images[activeImgIndex]?.url;
+  const rawImg = images[activeImgIndex]?.url;
+  const currentImg = rawImg ? extractDirectImageUrl(rawImg) : null;
 
   return (
     <div className="page-shell pt-28 pb-24 min-h-screen">
@@ -87,7 +89,12 @@ export default function ProductDetails() {
                 <img
                   src={currentImg}
                   alt={product.name}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-all duration-300"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+                  }}
                 />
               ) : (
                 <svg viewBox="0 0 200 200" className="w-44 h-44 text-sage">
@@ -121,6 +128,16 @@ export default function ProductDetails() {
                     }`}
                   >
                     <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    <img
+                      src={extractDirectImageUrl(img.url)}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = FALLBACK_PRODUCT_IMAGE;
+                      }}
+                    />
                   </button>
                 ))}
               </div>

@@ -29,7 +29,9 @@ const app = express();
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // ---------- Security & core middleware ----------
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 // Allow the configured CLIENT_URL, the Vercel production domain, and any Vercel
 // preview URLs. In development fall back to localhost:5174.
 const allowedOrigins = [
@@ -53,8 +55,18 @@ app.use(express.json({ limit: '10kb' })); // also guards against oversized paylo
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use('/api', apiLimiter);
 
+// ---------- DB Readiness (Serverless / Cold Start Safety) ----------
+const { connectDB, isMongo } = require('./config/db');
+app.use('/api', async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ---------- Health check ----------
-const { isMongo } = require('./config/db');
 app.get('/api/health', (req, res) => res.json({
   success: true,
   message: 'EcoPocket API is running.',

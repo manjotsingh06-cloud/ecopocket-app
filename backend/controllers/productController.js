@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const { uploadImage, deleteImage } = require('../config/cloudinary');
+const { extractDirectImageUrl, sanitizeImages } = require('../utils/imageUtils');
 
 // GET /api/products?category=&fabric=&search=&sort=&page=&limit=
 async function getProducts(req, res, next) {
@@ -47,6 +48,9 @@ function slugify(str) {
 async function createProduct(req, res, next) {
   try {
     req.body.slug = (req.body.slug || slugify(req.body.name)).toLowerCase();
+    if (req.body.images) {
+      req.body.images = sanitizeImages(req.body.images);
+    }
     const product = await Product.create(req.body);
     res.status(201).json({ success: true, product });
   } catch (err) {
@@ -59,6 +63,9 @@ async function updateProduct(req, res, next) {
   try {
     // Auto-regenerate the slug on rename so the storefront URL stays in sync.
     if (req.body.name && !req.body.slug) req.body.slug = slugify(req.body.name);
+    if (req.body.images) {
+      req.body.images = sanitizeImages(req.body.images);
+    }
     const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
     res.json({ success: true, product });
@@ -81,6 +88,24 @@ async function deleteProduct(req, res, next) {
   }
 }
 
+// POST /api/admin/products/upload-images (admin, standalone multipart upload via multer)
+async function uploadProductImageStandalone(req, res, next) {
+  try {
+    const files = req.files || (req.file ? [req.file] : []);
+    if (!files || files.length === 0) {
+      return res.status(400).json({ success: false, message: 'No images provided.' });
+    }
+    const uploaded = await Promise.all(files.map((f) => uploadImage(f.path, 'ecopocket/products')));
+    res.json({
+      success: true,
+      images: uploaded,
+      urls: uploaded.map((u) => u.url),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // POST /api/admin/products/:id/images (admin, multipart upload via multer)
 async function uploadProductImages(req, res, next) {
   try {
@@ -90,10 +115,18 @@ async function uploadProductImages(req, res, next) {
     const uploaded = await Promise.all((req.files || []).map((f) => uploadImage(f.path, 'ecopocket/products')));
     product.images.push(...uploaded);
     await product.save();
-    res.json({ success: true, images: product.images });
+    res.json({ success: true, images: product.images, urls: uploaded.map((u) => u.url) });
   } catch (err) {
     next(err);
   }
 }
 
-module.exports = { getProducts, getProductBySlug, createProduct, updateProduct, deleteProduct, uploadProductImages };
+module.exports = {
+  getProducts,
+  getProductBySlug,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  uploadProductImages,
+  uploadProductImageStandalone,
+};

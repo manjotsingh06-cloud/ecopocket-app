@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiHeart } from 'react-icons/fi';
 import { formatPrice } from '../../data/products';
+import { extractDirectImageUrl } from '../../utils/imageUtils';
 
 export default function ProductCard({ product }) {
-  const img = product.images?.[0]?.url || '/images/products/quilted-sandwich-pocket.jpg';
+  const rawImg = product.images?.[0]?.url;
+  const img = rawImg ? extractDirectImageUrl(rawImg) : '/images/products/quilted-sandwich-pocket.jpg';
   const [imageFailed, setImageFailed] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -28,6 +30,7 @@ export default function ProductCard({ product }) {
           <img
             src={imageFailed ? '/images/products/quilted-sandwich-pocket.jpg' : img}
             alt={product.name}
+            referrerPolicy="no-referrer"
             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
             loading="lazy"
             decoding="async"

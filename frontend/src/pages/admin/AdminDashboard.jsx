@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Reveal from '../../components/ui/Reveal';
 import api from '../../api/axios';
 import { formatPrice } from '../../data/products';
+import { extractDirectImageUrl } from '../../utils/imageUtils';
 import {
   FiEdit2, FiTrash2, FiPlus, FiCheck, FiX, FiImage,
   FiUser, FiMail, FiStar, FiLoader, FiUpload, FiPackage, FiTruck, FiRefreshCw,
@@ -197,6 +198,9 @@ export default function AdminDashboard() {
       features: f.features.split(',').map((s) => s.trim()).filter(Boolean),
       isFeatured: !!f.isFeatured,
       images: f.imageUrls.filter((u) => u && u.trim()).map((url) => ({ url: url.trim() })),
+      images: f.imageUrls
+        .filter((u) => u && u.trim())
+        .map((url) => ({ url: extractDirectImageUrl(url.trim()) })),
     };
     try {
       if (f.isNew) {
@@ -224,7 +228,12 @@ export default function AdminDashboard() {
       fetchProducts();
       refreshAnalytics();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete product.');
+      if (err.response?.status === 401) {
+        alert('Your admin session has expired. Please log in again.');
+        window.location.href = '/login';
+      } else {
+        alert(err.response?.data?.message || 'Failed to delete product.');
+      }
     }
   };
 
@@ -354,19 +363,22 @@ export default function AdminDashboard() {
   const handleUploadProductImage = async (files) => {
     const list = Array.from(files || []);
     if (list.length === 0) return;
-    if (!productForm || productForm.isNew || !productForm._id) {
-      alert('Save the product first, then use "Upload image" to add files from your computer.');
-      return;
-    }
     const existing = new Set(productForm.imageUrls.map((u) => (u || '').trim()).filter(Boolean));
     setUploadingImage(true);
     const fd = new FormData();
     list.forEach((fl) => fd.append('images', fl));
     try {
-      const res = await api.post(`/products/${productForm._id}/images`, fd);
-      const urls = (res.data.images || []).map((img) => img.url).filter((u) => u && !existing.has(u));
-      setProductForm((f) => ({ ...f, imageUrls: f.imageUrls.filter((u) => u && u.trim()).concat(urls) }));
-      showToast(`${urls.length} image(s) uploaded and attached.`);
+      const endpoint = !productForm.isNew && productForm._id
+        ? `/products/${productForm._id}/images`
+        : '/products/upload-images';
+      const res = await api.post(endpoint, fd);
+      const urls = (res.data.urls || (res.data.images || []).map((img) => img.url)).filter((u) => u && !existing.has(u));
+      setProductForm((f) => {
+        const kept = f.imageUrls.filter((u) => u && u.trim());
+        const merged = kept.concat(urls);
+        return { ...f, imageUrls: merged.length ? merged : [''] };
+      });
+      showToast(`${urls.length} image(s) uploaded successfully!`);
     } catch (err) {
       alert(err.response?.data?.message || 'Upload failed.');
     } finally {
@@ -1043,7 +1055,18 @@ export default function AdminDashboard() {
                       <input
                         type="text"
                         value={url}
-                        onChange={(e) => setField('imageUrls', productForm.imageUrls.map((u, idx) => (idx === i ? e.target.value : u)))}
+                        onChange={(e) => {
+                          const cleaned = extractDirectImageUrl(e.target.value);
+                          setField('imageUrls', productForm.imageUrls.map((u, idx) => (idx === i ? cleaned : u)));
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData('text');
+                          const cleaned = extractDirectImageUrl(pasted);
+                          if (cleaned !== pasted) {
+                            e.preventDefault();
+                            setField('imageUrls', productForm.imageUrls.map((u, idx) => (idx === i ? cleaned : u)));
+                          }
+                        }}
                         placeholder="/images/products/your-file.jpg or https://..."
                         className={inputCls}
                       />
@@ -1057,14 +1080,14 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={addImageRow}
-                    className="px-3.5 py-2 rounded-xl border border-dashed border-forest/30 text-[11px] font-semibold inline-flex items-center gap-1.5 hover:bg-forest/5"
-                  >
-                    <FiPlus size={12} /> Add another image
-                  </button>
-                  {!productForm.isNew && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={addImageRow}
+                      className="px-3.5 py-2 rounded-xl border border-dashed border-forest/30 text-[11px] font-semibold inline-flex items-center gap-1.5 hover:bg-forest/5"
+                    >
+                      <FiPlus size={12} /> Add another image
+                    </button>
                     <label className="px-3.5 py-2 rounded-xl border border-dashed border-earth/40 text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer hover:bg-earth/5">
                       <FiUpload size={12} /> {uploadingImage ? 'Uploading...' : 'Upload image from computer'}
                       <input
@@ -1075,18 +1098,25 @@ export default function AdminDashboard() {
                         onChange={(e) => { handleUploadProductImage(e.target.files); e.target.value = ''; }}
                       />
                     </label>
-                  )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 mt-3 p-3 rounded-xl bg-forest/5 dark:bg-white/5 border border-forest/10 overflow-x-auto">
-                  {productForm.imageUrls.filter((u) => u && u.trim()).map((u, idx) => (
-                    <img
-                      key={idx}
-                      src={u.trim()}
-                      alt=""
-                      className="w-14 h-14 rounded-lg object-cover border border-forest/10 shrink-0"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ))}
+                  {productForm.imageUrls.filter((u) => u && u.trim()).map((u, idx) => {
+                    const clean = extractDirectImageUrl(u.trim());
+                    return (
+                      <img
+                        key={idx}
+                        src={clean}
+                        referrerPolicy="no-referrer"
+                        alt=""
+                        className="w-14 h-14 rounded-lg object-cover border border-forest/10 shrink-0 bg-forest/5"
+                        onError={(e) => {
+                          e.currentTarget.style.opacity = '0.35';
+                          e.currentTarget.title = 'Image could not be loaded. Please check the URL.';
+                        }}
+                      />
+                    );
+                  })}
                   <span className="text-[11px] font-semibold opacity-70 whitespace-nowrap">Live Preview</span>
                 </div>
               </div>

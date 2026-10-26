@@ -56,6 +56,13 @@ export function AuthProvider({ children }) {
           setSessionVerified(false);
         }
       });
+
+    const handleAuthExpired = () => {
+      setUser(null);
+      setSessionVerified(false);
+    };
+    window.addEventListener('ecopocket_auth_expired', handleAuthExpired);
+    return () => window.removeEventListener('ecopocket_auth_expired', handleAuthExpired);
   }, []);
 
   const persist = (token, userData) => {
