@@ -468,6 +468,10 @@ export default function AdminDashboard() {
                               src={p.images?.[0]?.url || '/images/products/quilted-sandwich-pocket.jpg'}
                               alt={p.name}
                               className="w-12 h-12 rounded-xl object-cover border border-forest/10"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = '/images/products/quilted-sandwich-pocket.jpg';
+                              }}
                             />
                           </td>
                           <td className="py-3 pr-4 font-bold text-forest dark:text-cream">{p.name}</td>
@@ -1111,8 +1115,8 @@ export default function AdminDashboard() {
                         alt=""
                         className="w-14 h-14 rounded-lg object-cover border border-forest/10 shrink-0 bg-forest/5"
                         onError={(e) => {
-                          e.currentTarget.style.opacity = '0.35';
-                          e.currentTarget.title = 'Image could not be loaded. Please check the URL.';
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/images/products/quilted-sandwich-pocket.jpg';
                         }}
                       />
                     );
